@@ -2,144 +2,198 @@
 import Phaser from 'phaser';
 
 // ==========================================
-// 1. CAMADA VIEW: CENA DO PHASER (COM ANIMAÇÃO)
+// CENA 1: TELA DE TÍTULO
 // ==========================================
 class BootScene extends Phaser.Scene {
-    constructor() {
-        super('BootScene');
-    }
-
+    constructor() { super('BootScene'); }
     preload() {
-        const bgUrl = 'https://raw.githubusercontent.com/Lucas9669/lumina-assets/main/assets/backgrounds/Titulo.png';
-        this.load.image('fundoTitulo', bgUrl);
+        this.load.image('fundoTitulo', 'https://raw.githubusercontent.com/Lucas9669/lumina-assets/main/assets/backgrounds/Titulo.png');
+        this.load.image('fundoMenu', 'https://raw.githubusercontent.com/Lucas9669/lumina-assets/main/assets/backgrounds/Menu%20principal.png');
     }
-
     create() {
-        const centerX = this.cameras.main.width / 2;
-        const centerY = this.cameras.main.height / 2;
+        this.cameras.main.fadeIn(500, 0, 0, 0);
 
-        const bg = this.add.image(centerX, centerY, 'fundoTitulo');
+        const cx = this.cameras.main.width / 2;
+        const cy = this.cameras.main.height / 2;
+        const bg = this.add.image(cx, cy, 'fundoTitulo');
         bg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
-        // MÁGICA: Efeito de Ilusão de Ótica / Respiração (Tweens)
-        this.tweens.add({
-            targets: bg,
-            // Aumenta a escala visual em 10% suavemente
-            scaleX: bg.scaleX * 1.1,
-            scaleY: bg.scaleY * 1.1,
-            // Move levemente para a direita e para baixo
-            x: centerX + 30,
-            y: centerY + 15,
-            duration: 15000, // Demora 15 segundos para ir (movimento super lento)
-            yoyo: true, // Quando chega no final, faz o caminho de volta
-            repeat: -1, // -1 significa que vai repetir para sempre
-            ease: 'Sine.easeInOut' // Acelera e desacelera suavemente como a respiração humana
+        this.tweens.add({ targets: bg, scaleX: bg.scaleX * 1.1, scaleY: bg.scaleY * 1.1, x: cx + 30, y: cy + 15, duration: 15000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+        this.game.events.off('START_MAIN_MENU_TRANSITION');
+        this.game.events.once('START_MAIN_MENU_TRANSITION', () => {
+            this.cameras.main.fadeOut(1000, 0, 0, 0);
+            this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+                this.scene.start('MainMenuScene');
+            });
         });
     }
 }
 
 // ==========================================
-// 2. CONFIGURAÇÃO DO PHASER 
+// CENA 2: MENU PRINCIPAL
 // ==========================================
-const config = {
-    type: Phaser.AUTO,
-    parent: 'game-container',
-    width: 1920,
-    height: 1080,
-    scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH
-    },
-    scene: [BootScene]
-};
+class MainMenuScene extends Phaser.Scene {
+    constructor() { super('MainMenuScene'); }
+    create() {
+        this.cameras.main.fadeIn(1000, 0, 0, 0);
+        const cx = this.cameras.main.width / 2;
+        const cy = this.cameras.main.height / 2;
+        const bgMenu = this.add.image(cx, cy, 'fundoMenu');
+        bgMenu.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
+        this.tweens.add({ targets: bgMenu, scaleX: bgMenu.scaleX * 1.05, scaleY: bgMenu.scaleY * 1.05, x: cx - 20, y: cy - 10, duration: 18000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE, () => {
+            this.game.events.emit('SHOW_MAIN_MENU_UI');
+        });
+
+        this.game.events.off('LOGOUT_TRANSITION');
+        this.game.events.once('LOGOUT_TRANSITION', () => {
+            this.cameras.main.fadeOut(500, 0, 0, 0);
+            this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+                this.scene.start('BootScene');
+                this.game.events.emit('SHOW_LOGIN_UI');
+            });
+        });
+    }
+}
+
+const config = { type: Phaser.AUTO, parent: 'game-container', width: 1920, height: 1080, scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, scene: [BootScene, MainMenuScene] };
 const game = new Phaser.Game(config);
 
 // ==========================================
-// 3. CAMADA CORE/LOGIC: INTERFACE HTML E API
+// CAMADA LÓGICA: INTERFACE, AUTO-LOGIN E API
 // ==========================================
 const gameContainer = document.getElementById('game-container');
+const loginUI = document.getElementById('login-ui');
+const mainMenuUI = document.getElementById('main-menu-ui');
 const initialButtons = document.getElementById('initial-buttons');
-const btnNewGame = document.getElementById('btn-new-game');
-const btnLogin = document.getElementById('btn-login');
-
 const formBox = document.getElementById('form-box');
 const formTitle = document.getElementById('form-title');
 const btnSubmit = document.getElementById('btn-submit');
-const btnBack = document.getElementById('btn-back');
 const loadingMsg = document.getElementById('loading-msg');
+const autoLoginMsg = document.getElementById('auto-login-msg');
 
 let isLoginMode = false;
+const API_URL = 'https://script.google.com/macros/s/AKfycbzq3AXkjlYLxcuvL9NR22OqD_uJA-oHgks0_zSGWJ_cSqezz0hX_si_WkXkRKvHus0EGA/exec';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbxlU17pZPV_2WXYLq6HLcpnKY5Z0bIaSRsRhSEs4qhaigTPoBha1rDEftycSiO6naYLxA/exec';
+async function performAuth(email, pass, action) {
+    const payload = { action: action, email: email, senha: pass };
+    
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (data.status === "success") {
+            localStorage.setItem('lumina_email', email);
+            localStorage.setItem('lumina_pass', pass);
+
+            const username = email.split('@')[0].toUpperCase();
+            document.getElementById('display-username').innerText = username;
+            document.getElementById('display-gems').innerText = data.gems || 0;
+
+            loginUI.style.display = 'none';
+            gameContainer.className = ''; 
+            game.events.emit('START_MAIN_MENU_TRANSITION');
+        } else {
+            localStorage.removeItem('lumina_email');
+            localStorage.removeItem('lumina_pass');
+            resetLoginUI(data.message || "Erro de autenticação.");
+        }
+    } catch (error) {
+        console.error("Erro na API:", error);
+        resetLoginUI("Erro de conexão com o servidor.");
+    }
+}
+
+function resetLoginUI(errorText) {
+    loadingMsg.innerText = errorText;
+    loadingMsg.style.color = "red";
+    btnSubmit.disabled = false;
+    btnSubmit.style.opacity = '1';
+    autoLoginMsg.style.display = 'none';
+    initialButtons.style.display = 'flex';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const savedEmail = localStorage.getItem('lumina_email');
+    const savedPass = localStorage.getItem('lumina_pass');
+
+    if (savedEmail && savedPass) {
+        initialButtons.style.display = 'none';
+        autoLoginMsg.style.display = 'block';
+        gameContainer.className = 'bg-blurred';
+        performAuth(savedEmail, savedPass, 'login');
+    }
+});
 
 function openForm(isLogin) {
     isLoginMode = isLogin;
     initialButtons.style.display = 'none'; 
     formBox.style.display = 'block'; 
-    gameContainer.classList.add('bg-blurred'); 
-
-    if (isLogin) {
-        formTitle.innerText = "Entrar no Lumina";
-        btnSubmit.innerText = "Fazer Login";
-    } else {
-        formTitle.innerText = "Registrar no Lumina";
-        btnSubmit.innerText = "Criar Conta";
-    }
+    gameContainer.className = 'bg-blurred'; 
+    formTitle.innerText = isLogin ? "Entrar no Lumina" : "Registrar no Lumina";
+    btnSubmit.innerText = isLogin ? "Fazer Login" : "Criar Conta";
 }
 
-function closeForm() {
-    initialButtons.style.display = 'flex';
-    formBox.style.display = 'none';
-    loadingMsg.style.display = 'none';
-    gameContainer.classList.remove('bg-blurred'); 
-}
+document.getElementById('btn-new-game').addEventListener('click', () => openForm(false));
+document.getElementById('btn-login').addEventListener('click', () => openForm(true));
+document.getElementById('btn-back').addEventListener('click', () => {
+    initialButtons.style.display = 'flex'; formBox.style.display = 'none'; loadingMsg.style.display = 'none'; gameContainer.className = ''; 
+});
 
-btnNewGame.addEventListener('click', () => openForm(false));
-btnLogin.addEventListener('click', () => openForm(true));
-btnBack.addEventListener('click', closeForm);
-
-btnSubmit.addEventListener('click', async () => {
+btnSubmit.addEventListener('click', () => {
     const email = document.getElementById('userEmail').value;
     const pass = document.getElementById('userPass').value;
-
-    if (!email || !pass) {
-        alert("Por favor, preencha email e senha!");
-        return;
-    }
+    if (!email || !pass) return alert("Por favor, preencha email e senha!");
 
     loadingMsg.style.display = 'block';
-    loadingMsg.innerText = "Conectando ao servidor...";
+    loadingMsg.innerText = "Conectando ao banco de dados...";
+    loadingMsg.style.color = "#00E5FF";
     btnSubmit.disabled = true;
     btnSubmit.style.opacity = '0.5';
 
-    try {
-        const payload = {
-            action: isLoginMode ? 'login' : 'register',
-            email: email,
-            senha: pass
-        };
+    performAuth(email, pass, isLoginMode ? 'login' : 'register');
+});
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+// ==========================================
+// EVENTOS DE ANIMAÇÃO DO MENU
+// ==========================================
+game.events.on('SHOW_MAIN_MENU_UI', () => {
+    mainMenuUI.style.display = 'block';
+    // Um pequeno delay para a classe active ativar as animações CSS
+    setTimeout(() => {
+        mainMenuUI.classList.add('active'); 
+    }, 50);
+    gameContainer.className = 'bg-light-blur'; 
+});
 
-        loadingMsg.innerText = isLoginMode ? "Login realizado! Carregando jogo..." : "Conta criada! Entrando...";
-        loadingMsg.style.color = "#4CAF50";
+game.events.on('SHOW_LOGIN_UI', () => {
+    loginUI.style.display = 'flex';
+    initialButtons.style.display = 'flex';
+    formBox.style.display = 'none';
+    autoLoginMsg.style.display = 'none';
+    gameContainer.className = ''; 
+});
 
-        setTimeout(() => {
-            formBox.style.display = 'none';
-            // Próxima Cena entra aqui depois
-        }, 2000);
+// ==========================================
+// EVENTO DE LOGOFF
+// ==========================================
+document.getElementById('btn-logout').addEventListener('click', () => {
+    localStorage.removeItem('lumina_email');
+    localStorage.removeItem('lumina_pass');
 
-    } catch (error) {
-        console.error("Erro na comunicação:", error);
-        loadingMsg.innerText = "Erro ao conectar. Tente novamente.";
-        loadingMsg.style.color = "red";
-        btnSubmit.disabled = false;
-        btnSubmit.style.opacity = '1';
-    }
+    // Remove a classe active para que a animação possa rodar de novo da próxima vez
+    mainMenuUI.classList.remove('active');
+    setTimeout(() => {
+        mainMenuUI.style.display = 'none';
+    }, 300); // Espera a transição acabar para sumir
+    
+    gameContainer.className = ''; 
+    game.events.emit('LOGOUT_TRANSITION');
 });
