@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lumina Game - Full HD</title>
+    <style>
+        /* ==========================================
+           RESET E CONTAINER PRINCIPAL
+           ========================================== */
+        body {
+            margin: 0; padding: 0; background-color: #000;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #app-container {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        #game-container {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; transition: filter 0.6s ease; 
+        }
+        .bg-blurred { filter: blur(12px) brightness(0.5); }
+
+        #ui-layer {
+            position: absolute; z-index: 10; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        .ui-element { pointer-events: auto; }
+
+        #initial-buttons {
+            display: flex; gap: 30px; margin-top: 40vh; 
+        }
+
+        /* ==========================================
+           ANIMAÇÕES (KEYFRAMES - GPU ACCELERATED)
+           ========================================== */
+        @keyframes pulse-btn {
+            0% { transform: scale(1); box-shadow: 0 0 15px rgba(0, 229, 255, 0.5); }
+            50% { transform: scale(1.08); box-shadow: 0 0 30px rgba(0, 229, 255, 1); }
+            100% { transform: scale(1); box-shadow: 0 0 15px rgba(0, 229, 255, 0.5); }
+        }
+
+        /* Botão NOVO JOGO */
+        .btn-primary {
+            padding: 15px 40px; font-size: 24px; font-weight: 900;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #111; text-transform: uppercase;
+            border: 2px solid #00E5FF; border-radius: 50px; cursor: pointer;
+            /* Aplica a animação de pulsar */
+            animation: pulse-btn 2s infinite ease-in-out; 
+            transition: background 0.3s ease;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #FFE133 0%, #FFB733 100%);
+            animation-play-state: paused; /* Pausa o pulso ao passar o mouse */
+            transform: scale(1.1); /* Aumenta um pouco mais no hover */
+        }
+
+        /* Botão JOGADOR EXISTENTE */
+        .btn-secondary {
+            padding: 15px 40px; font-size: 24px; font-weight: 900;
+            background: rgba(10, 20, 30, 0.8); color: #00E5FF; text-transform: uppercase;
+            border: 2px solid #00E5FF; border-radius: 50px; cursor: pointer;
+            backdrop-filter: blur(5px);
+            /* Aplica a animação de pulsar com um pequeno atraso para não ficarem iguais */
+            animation: pulse-btn 2s infinite ease-in-out 1s; 
+            transition: background 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background: rgba(0, 229, 255, 0.2);
+            animation-play-state: paused;
+            transform: scale(1.1);
+        }
+
+        /* ==========================================
+           CAIXA DE FORMULÁRIO
+           ========================================== */
+        #form-box {
+            display: none; background: rgba(15, 20, 30, 0.75);
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            padding: 40px 50px; border-radius: 20px;
+            border: 1px solid rgba(0, 229, 255, 0.3); color: white; text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.8), 0 0 20px rgba(0, 229, 255, 0.1);
+        }
+        #form-title { margin-top: 0; color: #FFD700; font-weight: 800; text-transform: uppercase; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
+        #form-box input {
+            display: block; width: 100%; box-sizing: border-box; padding: 15px; margin: 20px 0; border-radius: 8px;
+            background: rgba(0, 0, 0, 0.6); color: #fff; border: 1px solid #555; font-size: 16px;
+            transition: border 0.3s, box-shadow 0.3s;
+        }
+        #form-box input:focus { outline: none; border: 1px solid #00E5FF; box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
+        #btn-submit {
+            padding: 15px 40px; font-size: 18px; font-weight: bold; text-transform: uppercase;
+            background: linear-gradient(to bottom, #FFD700, #DAA520); color: #000; border: 2px solid #00E5FF;
+            border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.6); transition: all 0.3s ease;
+        }
+        #btn-submit:hover { background: linear-gradient(to bottom, #FFE55C, #E8B832); box-shadow: 0 0 25px rgba(0, 229, 255, 1); transform: translateY(-2px); }
+        #btn-back { background: none; border: none; color: #aaa; font-size: 14px; margin-top: 15px; cursor: pointer; text-decoration: underline; transition: color 0.2s; }
+        #btn-back:hover { color: #fff; }
+        #loading-msg { display: none; color: #00E5FF; margin-top: 20px; font-weight: bold; text-shadow: 0 0 5px rgba(0, 229, 255, 0.5); }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="game-container"></div>
+        <div id="ui-layer">
+            <div id="initial-buttons" class="ui-element">
+                <button id="btn-login" class="btn-secondary">Jogador Existente</button>
+                <button id="btn-new-game" class="btn-primary">Novo Jogo</button>
+            </div>
+            <div id="form-box" class="ui-element">
+                <h2 id="form-title">Registrar no Lumina</h2>
+                <input type="email" id="userEmail" placeholder="Seu E-mail" required autocomplete="email">
+                <input type="password" id="userPass" placeholder="Sua Senha" required autocomplete="new-password">
+                <button id="btn-submit">Criar Conta</button><br>
+                <button id="btn-back">Voltar</button>
+                <p id="loading-msg">Conectando ao servidor...</p>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
