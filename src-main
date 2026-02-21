@@ -1,0 +1,145 @@
+// src/main.js
+import Phaser from 'phaser';
+
+// ==========================================
+// 1. CAMADA VIEW: CENA DO PHASER (COM ANIMAÇÃO)
+// ==========================================
+class BootScene extends Phaser.Scene {
+    constructor() {
+        super('BootScene');
+    }
+
+    preload() {
+        const bgUrl = 'https://raw.githubusercontent.com/Lucas9669/lumina-assets/main/assets/backgrounds/Titulo.png';
+        this.load.image('fundoTitulo', bgUrl);
+    }
+
+    create() {
+        const centerX = this.cameras.main.width / 2;
+        const centerY = this.cameras.main.height / 2;
+
+        const bg = this.add.image(centerX, centerY, 'fundoTitulo');
+        bg.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+
+        // MÁGICA: Efeito de Ilusão de Ótica / Respiração (Tweens)
+        this.tweens.add({
+            targets: bg,
+            // Aumenta a escala visual em 10% suavemente
+            scaleX: bg.scaleX * 1.1,
+            scaleY: bg.scaleY * 1.1,
+            // Move levemente para a direita e para baixo
+            x: centerX + 30,
+            y: centerY + 15,
+            duration: 15000, // Demora 15 segundos para ir (movimento super lento)
+            yoyo: true, // Quando chega no final, faz o caminho de volta
+            repeat: -1, // -1 significa que vai repetir para sempre
+            ease: 'Sine.easeInOut' // Acelera e desacelera suavemente como a respiração humana
+        });
+    }
+}
+
+// ==========================================
+// 2. CONFIGURAÇÃO DO PHASER 
+// ==========================================
+const config = {
+    type: Phaser.AUTO,
+    parent: 'game-container',
+    width: 1920,
+    height: 1080,
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    scene: [BootScene]
+};
+
+const game = new Phaser.Game(config);
+
+// ==========================================
+// 3. CAMADA CORE/LOGIC: INTERFACE HTML E API
+// ==========================================
+const gameContainer = document.getElementById('game-container');
+const initialButtons = document.getElementById('initial-buttons');
+const btnNewGame = document.getElementById('btn-new-game');
+const btnLogin = document.getElementById('btn-login');
+
+const formBox = document.getElementById('form-box');
+const formTitle = document.getElementById('form-title');
+const btnSubmit = document.getElementById('btn-submit');
+const btnBack = document.getElementById('btn-back');
+const loadingMsg = document.getElementById('loading-msg');
+
+let isLoginMode = false;
+
+const API_URL = 'https://script.google.com/macros/s/AKfycbxlU17pZPV_2WXYLq6HLcpnKY5Z0bIaSRsRhSEs4qhaigTPoBha1rDEftycSiO6naYLxA/exec';
+
+function openForm(isLogin) {
+    isLoginMode = isLogin;
+    initialButtons.style.display = 'none'; 
+    formBox.style.display = 'block'; 
+    gameContainer.classList.add('bg-blurred'); 
+
+    if (isLogin) {
+        formTitle.innerText = "Entrar no Lumina";
+        btnSubmit.innerText = "Fazer Login";
+    } else {
+        formTitle.innerText = "Registrar no Lumina";
+        btnSubmit.innerText = "Criar Conta";
+    }
+}
+
+function closeForm() {
+    initialButtons.style.display = 'flex';
+    formBox.style.display = 'none';
+    loadingMsg.style.display = 'none';
+    gameContainer.classList.remove('bg-blurred'); 
+}
+
+btnNewGame.addEventListener('click', () => openForm(false));
+btnLogin.addEventListener('click', () => openForm(true));
+btnBack.addEventListener('click', closeForm);
+
+btnSubmit.addEventListener('click', async () => {
+    const email = document.getElementById('userEmail').value;
+    const pass = document.getElementById('userPass').value;
+
+    if (!email || !pass) {
+        alert("Por favor, preencha email e senha!");
+        return;
+    }
+
+    loadingMsg.style.display = 'block';
+    loadingMsg.innerText = "Conectando ao servidor...";
+    btnSubmit.disabled = true;
+    btnSubmit.style.opacity = '0.5';
+
+    try {
+        const payload = {
+            action: isLoginMode ? 'login' : 'register',
+            email: email,
+            senha: pass
+        };
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        loadingMsg.innerText = isLoginMode ? "Login realizado! Carregando jogo..." : "Conta criada! Entrando...";
+        loadingMsg.style.color = "#4CAF50";
+
+        setTimeout(() => {
+            formBox.style.display = 'none';
+            // Próxima Cena entra aqui depois
+        }, 2000);
+
+    } catch (error) {
+        console.error("Erro na comunicação:", error);
+        loadingMsg.innerText = "Erro ao conectar. Tente novamente.";
+        loadingMsg.style.color = "red";
+        btnSubmit.disabled = false;
+        btnSubmit.style.opacity = '1';
+    }
+});
