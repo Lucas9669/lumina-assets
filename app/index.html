@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Project Lumina</title>
+  <meta name="theme-color" content="#070b14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Lumina">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icone-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    html, body { margin: 0; height: 100%; background: #070b14; overflow: hidden; font-family: system-ui, sans-serif; }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+    #abertura { position: fixed; inset: 0; display: grid; place-items: center; align-content: center; gap: 18px; background: #070b14; color: #f0c75e; z-index: 2; transition: opacity .5s; }
+    #abertura img { width: 120px; border-radius: 22px; box-shadow: 0 0 40px rgba(255,215,0,.45); }
+    #abertura b { font: 900 22px Georgia, serif; letter-spacing: 2px; }
+    #abertura.saiu { opacity: 0; pointer-events: none; }
+    #instalar { position: fixed; z-index: 3; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: none;
+      padding: 10px 18px; border: 0; border-radius: 24px; font: 800 14px system-ui; color: #2b1a06;
+      background: linear-gradient(180deg, #ffe48a, #f0a832 55%, #c9701c); box-shadow: 0 0 0 2px #4a2f0c, 0 0 0 4px #d8a94a, 0 8px 20px rgba(0,0,0,.6); }
+    #instalar small { font-weight: 600; }
+    #fechar-inst { position: fixed; z-index: 3; display: none; left: calc(50% + 120px); bottom: calc(118px + env(safe-area-inset-bottom)); width: 24px; height: 24px; border-radius: 50%; border: 0; background: #222; color: #fff; }
+  </style>
+</head>
+<body>
+  <div id="abertura"><img src="icone-192.png" alt=""><b>PROJECT LUMINA</b></div>
+  <!-- COLE AQUI o link /exec do seu Web App (Implantar > Gerenciar implantações) -->
+  <iframe id="jogo" title="Project Lumina" allow="clipboard-write; fullscreen" src="https://script.google.com/macros/s/AKfycbzMYRiw7S2BPTFnjzIKEcgYCdK8Z4W8GlRnhr7ziIJclpiIbrRP0XusLF3DMpeZFjbS5w/exec"></iframe>
+  <button id="instalar">📲 Instalar o Lumina <small>(abre como app)</small></button>
+  <button id="fechar-inst" aria-label="Fechar">✕</button>
+  <script>
+    const jogo = document.getElementById('jogo'), abertura = document.getElementById('abertura');
+    jogo.addEventListener('load', () => setTimeout(() => abertura.classList.add('saiu'), 600));
+    setTimeout(() => abertura.classList.add('saiu'), 8000);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    // Botão "Instalar" (Chrome/Edge/Android). No iPhone: Compartilhar > Adicionar à Tela de Início.
+    let pedido = null;
+    const btn = document.getElementById('instalar'), fechar = document.getElementById('fechar-inst');
+    const jaInstalado = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); pedido = e;
+      if (!jaInstalado && !localStorage.getItem('lumina_inst_dispensado')) { btn.style.display = 'block'; fechar.style.display = 'block'; }
+    });
+    btn.addEventListener('click', async () => { if (!pedido) return; pedido.prompt(); await pedido.userChoice; pedido = null; btn.style.display = fechar.style.display = 'none'; });
+    fechar.addEventListener('click', () => { btn.style.display = fechar.style.display = 'none'; try { localStorage.setItem('lumina_inst_dispensado', '1'); } catch (e) {} });
+    window.addEventListener('appinstalled', () => { btn.style.display = fechar.style.display = 'none'; });
+  </script>
+</body>
+</html>
